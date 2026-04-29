@@ -1,0 +1,53 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+
+#app {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  height: 100vh;
+}
+
+#board {
+  display: grid;
+  background-image: url(/src/assets/boards/8x8_wood.svg);
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  background-repeat: no-repeat;
+  background-size: cover;
+  aspect-ratio: 1 / 1;
+  width: 800px;
+  height: 800px;
+}
+
+.piece {
+  width: 100%;
+  height: 100% ;
+  cursor: pointer;
+}
+
+.is-dragging {
+  cursor: grabbing;
+  opacity: 0.1;
+}
+
+div.highlight {
+  position: relative;
+}
+
+
+div.highlight::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-color: rgba(15, 209, 144, 0.5);
+  width: 20%;
+  height: 20%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
