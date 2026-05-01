@@ -3,29 +3,12 @@ import { pieces } from "./assets/utils/pieces";
 const app = document.getElementById("app");
 const board = document.getElementById("board");
 
+let turn = "white";
+console.log("whites turn")
+
 board.addEventListener("dragover", (e) => {
   e.preventDefault();
 });
-
-//  1 = white rook
-//  2 = white knight
-//  3 = white bishop
-//  4 = white queen
-//  5 = white king
-//  6 = white pawn
-
-// -1 = black rook
-// -2 = black knight
-// -3 = black bishop
-// -4 = black queen
-// -5 = black king
-// -6 = black pawn
-
-const boardState = [
-  -1, -2, -3, -4, -5, -3, -2, -1, -6, -6, -6, -6, -6, -6, -6, -6, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, 6, 6, 6, 6, 6, 6, 6, 6, 1, 2, 3, 4, 5, 3, 2, 1,
-];
 
 const removeHighlights = () => {
   for (let i = 0; i < 64; i++) {
@@ -52,11 +35,15 @@ const calcRookMoves = (row, col, color) => {
     while (
       isInRangeOfBoard(currRow, currCol) &&
       (!isAPieceInThisPosition(currRow * 8 + currCol) ||
-        !isThisPieceInThisPositionWithTheSameColor(
-          currRow * 8 + currCol,
-          color,
-        ))
+        !isThisPieceInThisPositionWithTheColor(currRow * 8 + currCol, color))
     ) {
+      if (
+        isAPieceInThisPosition(currRow * 8 + currCol) &&
+        !isThisPieceInThisPositionWithTheColor(currRow * 8 + currCol, color)
+      ) {
+        moves.push(currRow * 8 + currCol);
+        break;
+      }
       moves.push(currRow * 8 + currCol);
 
       currRow += dir.dr;
@@ -66,7 +53,8 @@ const calcRookMoves = (row, col, color) => {
   return moves;
 };
 
-const isThisPieceInThisPositionWithTheSameColor = (to, color) =>
+const isThisPieceInThisPositionWithTheColor = (to, color) =>
+  board.children[to].childElementCount > 0 &&
   color == board.children[to].firstElementChild.getAttribute("data-color");
 
 const isAPieceInThisPosition = (pos) => {
@@ -103,17 +91,34 @@ const calcBishopMoves = (row, col, color) => {
     while (
       isInRangeOfBoard(currRow, currCol) &&
       (!isAPieceInThisPosition(currRow * 8 + currCol) ||
-        !isThisPieceInThisPositionWithTheSameColor(
-          currRow * 8 + currCol,
-          color,
-        ))
+        !isThisPieceInThisPositionWithTheColor(currRow * 8 + currCol, color))
     ) {
+      if (
+        isAPieceInThisPosition(currRow * 8 + currCol) &&
+        !isThisPieceInThisPositionWithTheColor(currRow * 8 + currCol, color)
+      ) {
+        moves.push(currRow * 8 + currCol);
+        break;
+      }
       moves.push(currRow * 8 + currCol);
       currRow += dir.dr;
       currCol += dir.dc;
     }
   }
   return moves;
+};
+
+const movePieceElement = (pieceFromPos, pieceToPos, color, pieceType) => {
+  const currPiece = board.children[pieceFromPos].firstElementChild;
+  board.children[pieceFromPos].removeChild(currPiece);
+
+  currPiece.setAttribute("data-position", pieceToPos);
+  board.children[pieceToPos].appendChild(currPiece);
+
+  currPiece.addEventListener("dragstart", (e) => {
+    currPiece.classList.add("is-dragging");
+    e.dataTransfer.setData("text/plain", `${pieceToPos},${pieceType},${color}`);
+  });
 };
 
 const fillBoard = () => {
@@ -134,12 +139,13 @@ const fillBoard = () => {
 
 const movePiece = (from, to) => {
   const [posFrom, pieceType, color] = from.split(",");
+  if(turn != color) return 
   if (calculateMove(parseInt(posFrom), pieceType, color).indexOf(to) == -1) {
     return;
   }
 
   if (isAPieceInThisPosition(to)) {
-    if (isThisPieceInThisPositionWithTheSameColor(to, color)) {
+    if (isThisPieceInThisPositionWithTheColor(to, color)) {
       console.log("La Pieza es del mismo color");
       return;
     }
@@ -148,10 +154,22 @@ const movePiece = (from, to) => {
   }
 
   if (pieceType == "king") {
-    if (color == "black" && isTheFirstMoveOfTheBlackKing)
+    if (color == "black" && isTheFirstMoveOfTheBlackKing) {
       isTheFirstMoveOfTheBlackKing = false;
-    if (color == "white" && isTheFirstMoveOfTheWhiteKing)
+      if (posFrom - to == 2) {
+        movePieceElement(0, +posFrom - 1, "black", "rook");
+      } else if (posFrom - to == -2) {
+        movePieceElement(7, +posFrom + 1, "black", "rook");
+      }
+    }
+    if (color == "white" && isTheFirstMoveOfTheWhiteKing) {
       isTheFirstMoveOfTheWhiteKing = false;
+      if (posFrom - to == 2) {
+        movePieceElement(56, posFrom - 1, "white", "rook");
+      } else if (posFrom - to == -2) {
+        movePieceElement(63, +posFrom + 1, "white", "rook");
+      }
+    }
   }
   if (pieceType == "rook") {
     if (color == "white") {
@@ -167,18 +185,71 @@ const movePiece = (from, to) => {
         firstMovesRooks.black.right = false;
     }
   }
-
-  const currPiece = board.children[+posFrom].firstElementChild;
-  board.children[+posFrom].removeChild(currPiece);
-
-  currPiece.setAttribute("data-position", to);
-  board.children[to].appendChild(currPiece);
-
-  currPiece.addEventListener("dragstart", (e) => {
-    currPiece.classList.add("is-dragging");
-    e.dataTransfer.setData("text/plain", `${to},${pieceType},${color}`);
-  });
+  movePieceElement(posFrom, to, color, pieceType);
+  if(turn == "white"){
+     turn = "black";
+     console.log("black turn")
+  }
+  else {
+    turn = "white";
+    console.log("white turn")
+  }
   removeHighlights();
+};
+
+const getAtrributesOfAPiece = (pos) => {
+  if (isAPieceInThisPosition(pos)) {
+    const pieceImg = board.children[pos].firstElementChild;
+    return {
+      position: pieceImg.getAttribute("data-position"),
+      pieceType: pieceImg.getAttribute("data-piece"),
+      color: pieceImg.getAttribute("data-color"),
+    };
+  }
+};
+
+const isTheKingIsOnCheck = (kingColor, kingPosition) => {
+  for (let i = 0; i < 64; ++i) {
+    if (isThisPieceInThisPositionWithTheColor("black")) {
+      const { position, pieceType, color } = getAtrributesOfAPiece(i);
+      let posibleMoves = calculateMove(position, pieceType, color);
+      if (posibleMoves.indexOf(kingPosition) != -1) {
+        return true;
+      }
+    } else {
+      if (isThisPieceInThisPositionWithTheColor("white")) {
+        const { position, pieceType, color } = getAtrributesOfAPiece(i);
+        let posibleMoves = calculateMove(position, pieceType, color);
+        if (posibleMoves.indexOf(kingPosition) != -1) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+};
+
+const checkIfThisPositionIsBeingAttacked = (pos) => {
+  for (let i = 0; i < 64; ++i) {
+    if (turn == "white" && isThisPieceInThisPositionWithTheColor(pos,"black")) {
+      const { position, pieceType, color } = getAtrributesOfAPiece(i);
+      let posibleMoves = calculateMove(position, pieceType, color);
+      if (posibleMoves.indexOf(kingPosition) != -1) {
+        return true;
+      }
+    } else{
+      if (isThisPieceInThisPositionWithTheColor("white")) {
+        const { position, pieceType, color } = getAtrributesOfAPiece(i);
+        let posibleMoves = calculateMove(position, pieceType, color);
+        if (posibleMoves.indexOf(kingPosition) != -1) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
 };
 
 const calculateMove = (position, pieceType, pieceColor) => {
@@ -193,7 +264,10 @@ const calculateMove = (position, pieceType, pieceColor) => {
       if (row === 0) return [];
       if (row === 6) {
         moves.push((row - 1) * 8 + col);
-        if (!isAPieceInThisPosition((row - 1) * 8 + col))
+        if (
+          !isAPieceInThisPosition((row - 1) * 8 + col) &&
+          !isAPieceInThisPosition((row - 2) * 8 + col)
+        )
           moves.push((row - 2) * 8 + col);
       } else {
         const nextPos = (row - 1) * 8 + col;
@@ -202,14 +276,20 @@ const calculateMove = (position, pieceType, pieceColor) => {
       if (
         isInRangeOfBoard(row - 1, col - 1) &&
         isAPieceInThisPosition((row - 1) * 8 + col - 1) &&
-        !isThisPieceInThisPositionWithTheSameColor((row - 1) * 8 + col - 1)
+        !isThisPieceInThisPositionWithTheColor(
+          (row - 1) * 8 + col - 1,
+          pieceColor,
+        )
       ) {
         moves.push((row - 1) * 8 + col - 1);
       }
       if (
         isInRangeOfBoard(row - 1, col + 1) &&
         isAPieceInThisPosition((row - 1) * 8 + col + 1) &&
-        !isThisPieceInThisPositionWithTheSameColor((row - 1) * 8 + col + 1)
+        !isThisPieceInThisPositionWithTheColor(
+          (row - 1) * 8 + col + 1,
+          pieceColor,
+        )
       ) {
         moves.push((row - 1) * 8 + col + 1);
       }
@@ -217,7 +297,10 @@ const calculateMove = (position, pieceType, pieceColor) => {
       if (row === 7) return [];
       if (row === 1) {
         moves.push((row + 1) * 8 + col);
-        if (!isAPieceInThisPosition((row + 1) * 8 + col))
+        if (
+          !isAPieceInThisPosition((row + 1) * 8 + col) &&
+          !isAPieceInThisPosition((row + 2) * 8 + col)
+        )
           moves.push((row + 2) * 8 + col);
       } else {
         const nextPos = (row + 1) * 8 + col;
@@ -226,34 +309,88 @@ const calculateMove = (position, pieceType, pieceColor) => {
       if (
         isInRangeOfBoard(row + 1, col - 1) &&
         isAPieceInThisPosition((row + 1) * 8 + col - 1) &&
-        !isThisPieceInThisPositionWithTheSameColor((row + 1) * 8 + col - 1)
+        !isThisPieceInThisPositionWithTheColor(
+          (row + 1) * 8 + col - 1,
+          pieceColor,
+        )
       ) {
         moves.push((row + 1) * 8 + col - 1);
       }
       if (
         isInRangeOfBoard(row + 1, col + 1) &&
         isAPieceInThisPosition((row + 1) * 8 + col + 1) &&
-        !isThisPieceInThisPositionWithTheSameColor((row + 1) * 8 + col + 1)
+        !isThisPieceInThisPositionWithTheColor(
+          (row + 1) * 8 + col + 1,
+          pieceColor,
+        )
       ) {
         moves.push((row + 1) * 8 + col + 1);
       }
     }
   } else if (pieceType == "knight") {
-    if (isInRangeOfBoard(row - 2, col - 1))
+    if (
+      isInRangeOfBoard(row - 2, col - 1) &&
+      !isThisPieceInThisPositionWithTheColor(
+        (row - 2) * 8 + (col - 1),
+        pieceColor,
+      )
+    )
       moves.push((row - 2) * 8 + (col - 1));
-    if (isInRangeOfBoard(row - 2, col + 1))
+    if (
+      isInRangeOfBoard(row - 2, col + 1) &&
+      !isThisPieceInThisPositionWithTheColor(
+        (row - 2) * 8 + (col + 1),
+        pieceColor,
+      )
+    )
       moves.push((row - 2) * 8 + (col + 1));
-    if (isInRangeOfBoard(row - 1, col - 2))
+    if (
+      isInRangeOfBoard(row - 1, col - 2) &&
+      !isThisPieceInThisPositionWithTheColor(
+        (row - 1) * 8 + (col - 2),
+        pieceColor,
+      )
+    )
       moves.push((row - 1) * 8 + (col - 2));
-    if (isInRangeOfBoard(row - 1, col + 2))
+    if (
+      isInRangeOfBoard(row - 1, col + 2) &&
+      !isThisPieceInThisPositionWithTheColor(
+        (row - 1) * 8 + (col + 2),
+        pieceColor,
+      )
+    )
       moves.push((row - 1) * 8 + (col + 2));
-    if (isInRangeOfBoard(row + 2, col - 1))
+    if (
+      isInRangeOfBoard(row + 2, col - 1) &&
+      !isThisPieceInThisPositionWithTheColor(
+        (row + 2) * 8 + (col - 1),
+        pieceColor,
+      )
+    )
       moves.push((row + 2) * 8 + (col - 1));
-    if (isInRangeOfBoard(row + 2, col + 1))
+    if (
+      isInRangeOfBoard(row + 2, col + 1) &&
+      !isThisPieceInThisPositionWithTheColor(
+        (row + 2) * 8 + (col + 1),
+        pieceColor,
+      )
+    )
       moves.push((row + 2) * 8 + (col + 1));
-    if (isInRangeOfBoard(row + 1, col - 2))
+    if (
+      isInRangeOfBoard(row + 1, col - 2) &&
+      !isThisPieceInThisPositionWithTheColor(
+        (row + 1) * 8 + (col - 2),
+        pieceColor,
+      )
+    )
       moves.push((row + 1) * 8 + (col - 2));
-    if (isInRangeOfBoard(row + 1, col + 2))
+    if (
+      isInRangeOfBoard(row + 1, col + 2) &&
+      !isThisPieceInThisPositionWithTheColor(
+        (row + 1) * 8 + (col + 2),
+        pieceColor,
+      )
+    )
       moves.push((row + 1) * 8 + (col + 2));
   } else if (pieceType == "bishop") {
     moves = calcBishopMoves(row, col, pieceColor);
@@ -364,15 +501,14 @@ const fillFirstRow = (color = "white", offset = 0) => {
     });
 
     pieceImg.addEventListener("click", (e) => {
+      if(turn != color) return 
       removeHighlights();
       calculateMove(
         pieceImg.getAttribute("data-position"),
         pieceName,
         color,
       ).forEach((move) => {
-        if (board.children[move].childElementCount == 0) {
-          board.children[move].classList.add("highlight");
-        }
+        board.children[move].classList.add("highlight");
       });
     });
 
@@ -401,6 +537,7 @@ const fillPawnsRow = (color = "white", offset = 0) => {
       pieceImg.classList.remove("is-dragging");
     });
     pieceImg.addEventListener("click", (e) => {
+      if(turn != color) return 
       const possibleMoves = calculateMove(
         pieceImg.getAttribute("data-position"),
         "pawn",
