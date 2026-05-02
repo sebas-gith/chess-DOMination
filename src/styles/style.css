@@ -6,9 +6,8 @@
 #app {
   display: flex;
   justify-content: center;
-  flex-direction: column;
-  align-items: center;
   height: 100vh;
+  margin-top: 20px;
 }
 
 #board {
@@ -21,6 +20,11 @@
   aspect-ratio: 1 / 1;
   width: 800px;
   height: 800px;
+  margin-right: 20px;
+  box-shadow:
+    rgba(50, 50, 93, 0.25) 0px 50px 100px -20px,
+    rgba(0, 0, 0, 0.3) 0px 30px 60px -30px,
+    rgba(10, 37, 64, 0.35) 0px -2px 6px 0px inset;
 }
 
 .piece {
@@ -53,4 +57,45 @@ div.highlight::before {
 
 .parpadeo {
   opacity: 0;
+}
+
+#movement-anotation-container {
+  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+  width: 350px;
+  height: 600px;
+  text-align: center;
+  overflow: hidden;
+  border-radius: 7px;
+}
+.movement-anotation {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+  background-color: white;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  position: relative;
+  font-size: 1.185em;
+}
+
+.movement-anotation .id {
+  user-select: none;
+  background-color: #e7e5e5;
+  width: 10%;
+}
+
+.movement-anotation > .white-movement,
+.black-movement {
+  width: 45%;
+  border: none;
+}
+
+.movement-anotation > .white-movement:hover,
+.black-movement:hover {
+  background-color: rgb(199, 198, 198);
+  cursor: pointer;
+}
+
+.movement-anotation > .black-movement {
+  color: white;
+  background-color: black;
 }

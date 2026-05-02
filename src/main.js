@@ -3,13 +3,15 @@ import { pieces } from "./assets/utils/pieces";
 const app = document.getElementById("app");
 const board = document.getElementById("board");
 let positionsAttackedByTheOtherColor = new Set([]);
-
+const anotations = document.getElementById("movement-anotation");
 let turn = "white";
 console.log("whites turn");
 
 board.addEventListener("dragover", (e) => {
   e.preventDefault();
 });
+
+const columns = ["a", "b", "c", "d", "e", "f", "g", "h"];
 
 const removeHighlights = () => {
   for (let i = 0; i < 64; i++) {
@@ -162,7 +164,6 @@ const movePiece = (from, to) => {
   positionsAttackedByTheOtherColor = new Set(checkEveryPositionAttacked());
   if (isTheKingIsOnCheck()) {
     console.log("esta jaque mi bro");
-
   }
 
   if (turn != color) return;
@@ -228,8 +229,12 @@ const movePiece = (from, to) => {
     console.log("white turn");
   }
   removeHighlights();
-};
+  const col = to % 8;
+  const row = Math.floor(to / 8);
 
+  console.log(`se jugo ${columns[col]}${row}`)
+
+};
 const getAttributeOfAPiece = (pos) => {
   if (isAPieceInThisPosition(pos)) {
     const pieceImg = board.children[pos].firstElementChild;
