@@ -12,8 +12,33 @@ board.addEventListener("dragover", (e) => {
   e.preventDefault();
 });
 
-const columns = ["a", "b", "c", "d", "e", "f", "g", "h"];
+const pgnOutput = document.getElementById("pgn-output");
 
+const updatePGN = () => {
+  let pgnString = "";
+  const moveElements = anotations.querySelectorAll(".movement-anotation");
+
+  moveElements.forEach((moveEl) => {
+    const id = moveEl.querySelector(".id").innerText;
+    const whiteMove = moveEl.querySelector(".white-movement").innerText.trim();
+    const blackMove = moveEl.querySelector(".black-movement").innerText.trim();
+
+    pgnString += `${id}. ${whiteMove} ${blackMove} `;
+  });
+
+  if (pgnOutput) {
+    pgnOutput.value = pgnString.trim();
+    pgnOutput.scrollTop = pgnOutput.scrollHeight;
+  }
+};
+
+const columns = ["a", "b", "c", "d", "e", "f", "g", "h"];
+const capitalizeFirstLetter = (word = "") => {
+  return word
+    .split("")
+    .map((ch, index) => (index == 0 ? ch.toUpperCase() : ch))
+    .join("");
+};
 const removeHighlights = () => {
   for (let i = 0; i < 64; i++) {
     board.children[i].classList.remove("highlight");
@@ -23,6 +48,49 @@ let whiteKingPosition = 60;
 let blackKingPosition = 4;
 const isInRangeOfBoard = (row, col) =>
   row >= 0 && col <= 7 && row <= 7 && col >= 0;
+
+const filterLegalMoves = (posFrom, moves, pieceType, color) => {
+  const validMoves = [];
+  const originalPiece = board.children[posFrom].firstElementChild;
+  const originalKingPos =
+    color === "white" ? whiteKingPosition : blackKingPosition;
+
+  for (const to of moves) {
+    const square = board.children[to];
+    const piece = square.firstElementChild;
+
+    if (piece) {
+      square.removeChild(piece);
+    }
+
+    square.appendChild(originalPiece);
+
+    if (pieceType === "king") {
+      if (color === "white") whiteKingPosition = to;
+      else blackKingPosition = to;
+    }
+    const attackedSquares = new Set(checkEveryPositionAttacked());
+    const currentKingPos =
+      color === "white" ? whiteKingPosition : blackKingPosition;
+
+    if (!attackedSquares.has(currentKingPos)) {
+      validMoves.push(to);
+    }
+
+    board.children[posFrom].appendChild(originalPiece);
+
+    if (piece) {
+      square.appendChild(piece);
+    }
+
+    if (pieceType === "king") {
+      if (color === "white") whiteKingPosition = originalKingPos;
+      else blackKingPosition = originalKingPos;
+    }
+  }
+
+  return validMoves;
+};
 
 const calcRookMoves = (row, col, color) => {
   const moves = [];
@@ -148,9 +216,9 @@ const animateCheck = (posKing) => {
   let counter = 0;
 
   intervalCheck = setInterval(() => {
-    const pieceImg = board.children[posKing].childElementCount;
+    const pieceImg = board.children[posKing].firstElementChild;
     pieceImg.classList.toggle("parpadeo");
-    contador++;
+    counter++;
 
     if (Date.now() - now >= 1000) {
       clearInterval(intervalCheck);
@@ -160,30 +228,66 @@ const animateCheck = (posKing) => {
   }, 200);
 };
 let blackPieceAnotation;
+let colorChecked = "";
 
 let moveCount = 1;
 let isOnCheck = true;
 const movePiece = (from, to) => {
   const [posFrom, pieceType, color] = from.split(",");
+  const posFromInt = parseInt(posFrom);
   const anotationCol = to % 8;
   const anotationRow = Math.abs(Math.floor(to / 8 - 8));
   const pieceFigure = chessUnicodes[color][pieceType];
+
+  let disambiguationChar = "";
+  if (pieceType !== "king" && pieceType !== "pawn") {
+    for (let i = 0; i < 64; i++) {
+      if (
+        i !== posFromInt &&
+        isAPieceInThisPosition(i) &&
+        isThisPieceInThisPositionWithTheColor(i, color)
+      ) {
+        const attrs = getAttributeOfAPiece(i);
+        if (attrs.pieceType === pieceType) {
+          const pseudoMoves = calculateMove(i, attrs.pieceType, color);
+          const legalMoves = filterLegalMoves(
+            i,
+            pseudoMoves,
+            attrs.pieceType,
+            color,
+          );
+
+          if (legalMoves.includes(to)) {
+            const fromCol = posFromInt % 8;
+            disambiguationChar = columns[fromCol];
+            break;
+          }
+        }
+      }
+    }
+  }
   positionsAttackedByTheOtherColor = new Set(checkEveryPositionAttacked());
 
   let absolutePosAnotation = null;
   if (turn != color) return;
-  if (calculateMove(parseInt(posFrom), pieceType, color).indexOf(to) == -1) {
+  const pseudoMoves = calculateMove(parseInt(posFrom), pieceType, color);
+  const legalMoves = filterLegalMoves(
+    parseInt(posFrom),
+    pseudoMoves,
+    pieceType,
+    color,
+  );
+
+  if (legalMoves.indexOf(to) == -1) {
     return;
   }
 
   if (isAPieceInThisPosition(to)) {
-    if (isThisPieceInThisPositionWithTheColor(to, color)) {
-      console.log("La Pieza es del mismo color");
-      return;
-    }
-    absolutePosAnotation = `${pieceFigure}x${columns[anotationCol]}${anotationRow}`;
+    absolutePosAnotation = `${pieceFigure}${disambiguationChar}x${columns[anotationCol]}${anotationRow}`;
     const eatenPiece = board.children[to].firstElementChild;
     board.children[to].removeChild(eatenPiece);
+  } else {
+    absolutePosAnotation = `${pieceFigure}${disambiguationChar}${columns[anotationCol]}${anotationRow}`;
   }
 
   if (pieceType == "king") {
@@ -265,11 +369,45 @@ const movePiece = (from, to) => {
     turn = "white";
     console.log("white turn");
   }
-  turnElement.innerText = `${turn} turn`;
+  updatePGN();
+  turnElement.innerHTML = `${turn == "white" ? "<img src='/src/assets/pieces-basic-svg/king-w.svg' style='width: 1em; height: 1em; vertical-align: middle;'/>" : "<img src='/src/assets/pieces-basic-svg/king-b.svg' style='width: 1em; height: 1em; vertical-align: middle;'/>"} ${capitalizeFirstLetter(turn)} turn`;
   positionsAttackedByTheOtherColor = new Set(checkEveryPositionAttacked());
-  if (isTheKingIsOnCheck()) {
-    console.log("Estas jaque");
-    return;
+  let hasLegalMoves = false;
+  for (let i = 0; i < 64; i++) {
+    if (
+      isAPieceInThisPosition(i) &&
+      isThisPieceInThisPositionWithTheColor(i, turn)
+    ) {
+      const { position, pieceType, color } = getAttributeOfAPiece(i);
+      const pseudoMoves = calculateMove(parseInt(position), pieceType, color);
+      const legalMoves = filterLegalMoves(
+        parseInt(position),
+        pseudoMoves,
+        pieceType,
+        color,
+      );
+
+      if (legalMoves.length > 0) {
+        hasLegalMoves = true;
+        break;
+      }
+    }
+  }
+
+  const inCheck = isTheKingIsOnCheck();
+
+  if (inCheck) {
+    console.log(`${turn} king is on check`);
+    if (turn == "white") animateCheck(whiteKingPosition);
+    else if (turn == "black") animateCheck(blackKingPosition);
+    colorChecked = turn;
+
+    if (!hasLegalMoves) {
+      console.log("jaque mate");
+    }
+  } else if (!hasLegalMoves) {
+    console.log("AHOGADO Es un empate.");
+    turn = "none";
   }
 };
 const getAttributeOfAPiece = (pos) => {
@@ -296,14 +434,6 @@ const checkEveryPositionAttacked = () => {
     if (turn == "white" && isThisPieceInThisPositionWithTheColor(i, "black")) {
       const { position, pieceType, color } = getAttributeOfAPiece(i);
       let posibleMoves = calculateMove(position, pieceType, color);
-      console.log(
-        "AAAAAAAAAAAAAAAAAA",
-        position,
-        pieceType,
-        color,
-        posibleMoves,
-      );
-      if (posibleMoves.indexOf(52) != -1) console.log("Que mierdca");
       positions.push(...posibleMoves);
     } else if (
       turn == "black" &&
@@ -312,19 +442,14 @@ const checkEveryPositionAttacked = () => {
     ) {
       const { position, pieceType, color } = getAttributeOfAPiece(i);
       let posibleMoves = calculateMove(position, pieceType, color);
-      console.log(
-        "AAAAAAAAAAAAAAAAAA",
-        position,
-        pieceType,
-        color,
-        posibleMoves,
-      );
       positions.push(...posibleMoves);
     }
   }
 
   return positions;
 };
+
+const checkEveryPosicionWhereTheKingCanGo = (color) => {};
 
 const isThisPieceBeingAttackedByAOppositePiece = (pos) => {};
 
@@ -657,11 +782,17 @@ const fillFirstRow = (color = "white", offset = 0) => {
         );
         console.log(positionsAttackedByTheOtherColor);
       }
-      calculateMove(
-        pieceImg.getAttribute("data-position"),
-        pieceName,
+      const pos = parseInt(pieceImg.getAttribute("data-position"));
+      const pieceNameAtr = pieceImg.getAttribute("data-piece");
+      const pseudoMoves = calculateMove(pos, pieceNameAtr, color);
+      const legalMoves = filterLegalMoves(
+        pos,
+        pseudoMoves,
+        pieceNameAtr,
         color,
-      ).forEach((move) => {
+      );
+
+      legalMoves.forEach((move) => {
         board.children[move].classList.add("highlight");
       });
     });
@@ -698,7 +829,17 @@ const fillPawnsRow = (color = "white", offset = 0) => {
         color,
       );
       removeHighlights();
-      possibleMoves.forEach((move) => {
+      const pos = parseInt(pieceImg.getAttribute("data-position"));
+      const pieceNameAtr = pieceImg.getAttribute("data-piece");
+      const pseudoMoves = calculateMove(pos, pieceNameAtr, color);
+      const legalMoves = filterLegalMoves(
+        pos,
+        pseudoMoves,
+        pieceNameAtr,
+        color,
+      );
+
+      legalMoves.forEach((move) => {
         board.children[move].classList.add("highlight");
       });
     });

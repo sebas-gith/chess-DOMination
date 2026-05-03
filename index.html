@@ -11,11 +11,15 @@
     <div id="app">
       <div id="board"></div>
       <div class="sidebar">
-        <div id="movement-anotation-container" sc></div>
+        <div id="movement-anotation-container"></div>
+        <div class="turn">
+          <h1 class="turn-text"><img src='/src/assets/pieces-basic-svg/king-w.svg' style='width: 1em; height: 1em; vertical-align: middle;'/>White turn</h1>
+        </div>
       </div>
-      <div class="turn">
-        <h1 class="turn-text">White turn</h1>
-      </div>
+    </div>
+    <div class="pgn-content">
+      <h3>PGN</h3>
+      <textarea id="pgn-output" readonly placeholder="1. e4 e5..."></textarea>
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>
