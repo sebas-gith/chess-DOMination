@@ -16,3 +16,23 @@ export const pieces = {
         pawn: "/src/assets/pieces-basic-svg/pawn-b.svg",
     }
 };
+
+export const chessUnicodes = {
+    white: {
+        king: "♔",
+        queen: "♕",
+        rook: "♖",
+        bishop: "♗",
+        knight: "♘",
+        pawn: "♙",  
+    },
+    black: {
+        king: "♚",
+        queen: "♛",
+        rook: "♜",
+        bishop: "♝",
+        knight: "♞",
+        pawn: "♟",
+    }
+
+}

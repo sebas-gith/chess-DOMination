@@ -1,9 +1,10 @@
-import { pieces } from "./assets/utils/pieces";
+import { pieces, chessUnicodes } from "./assets/utils/pieces";
 
 const app = document.getElementById("app");
 const board = document.getElementById("board");
 let positionsAttackedByTheOtherColor = new Set([]);
-const anotations = document.getElementById("movement-anotation");
+const anotations = document.getElementById("movement-anotation-container");
+const turnElement = document.querySelector(".turn-text");
 let turn = "white";
 console.log("whites turn");
 
@@ -158,14 +159,18 @@ const animateCheck = (posKing) => {
     }
   }, 200);
 };
+let blackPieceAnotation;
 
+let moveCount = 1;
+let isOnCheck = true;
 const movePiece = (from, to) => {
   const [posFrom, pieceType, color] = from.split(",");
+  const anotationCol = to % 8;
+  const anotationRow = Math.abs(Math.floor(to / 8 - 8));
+  const pieceFigure = chessUnicodes[color][pieceType];
   positionsAttackedByTheOtherColor = new Set(checkEveryPositionAttacked());
-  if (isTheKingIsOnCheck()) {
-    console.log("esta jaque mi bro");
-  }
 
+  let absolutePosAnotation = null;
   if (turn != color) return;
   if (calculateMove(parseInt(posFrom), pieceType, color).indexOf(to) == -1) {
     return;
@@ -176,6 +181,7 @@ const movePiece = (from, to) => {
       console.log("La Pieza es del mismo color");
       return;
     }
+    absolutePosAnotation = `${pieceFigure}x${columns[anotationCol]}${anotationRow}`;
     const eatenPiece = board.children[to].firstElementChild;
     board.children[to].removeChild(eatenPiece);
   }
@@ -187,8 +193,10 @@ const movePiece = (from, to) => {
       if (isTheFirstMoveOfTheBlackKing) {
         isTheFirstMoveOfTheBlackKing = false;
         if (posFrom - to == 2) {
+          absolutePosAnotation = "O-O-O";
           movePieceElement(0, +posFrom - 1, "black", "rook");
         } else if (posFrom - to == -2) {
+          absolutePosAnotation = "O-O";
           movePieceElement(7, +posFrom + 1, "black", "rook");
         }
       }
@@ -200,7 +208,9 @@ const movePiece = (from, to) => {
         isTheFirstMoveOfTheWhiteKing = false;
         if (posFrom - to == 2) {
           movePieceElement(56, posFrom - 1, "white", "rook");
+          absolutePosAnotation = "O-O-O";
         } else if (posFrom - to == -2) {
+          absolutePosAnotation = "O-O";
           movePieceElement(63, +posFrom + 1, "white", "rook");
         }
       }
@@ -221,19 +231,46 @@ const movePiece = (from, to) => {
     }
   }
   movePieceElement(posFrom, to, color, pieceType);
+
+  removeHighlights();
   if (turn == "white") {
+    const anotationContainer = document.createElement("div");
+    anotationContainer.classList.add("movement-anotation");
+    anotations.appendChild(anotationContainer);
+
+    const idAnotation = document.createElement("span");
+    idAnotation.classList.add("id");
+    idAnotation.innerText = moveCount;
+    anotationContainer.appendChild(idAnotation);
+
+    const whitePieceAnotation = document.createElement("span");
+    whitePieceAnotation.classList.add("white-movement");
+    whitePieceAnotation.innerText =
+      absolutePosAnotation ??
+      `${pieceFigure}${columns[anotationCol]}${anotationRow}`;
+    anotationContainer.appendChild(whitePieceAnotation);
+
+    blackPieceAnotation = document.createElement("span");
+    blackPieceAnotation.classList.add("black-movement");
+    blackPieceAnotation.innerText = `  `;
+    anotationContainer.appendChild(blackPieceAnotation);
     turn = "black";
     console.log("black turn");
+    ++moveCount;
   } else {
+    console.log(`${pieceFigure}${columns[anotationCol]}${anotationRow}`);
+    blackPieceAnotation.innerHTML =
+      absolutePosAnotation ??
+      `${pieceFigure}${columns[anotationCol]}${anotationRow}`;
     turn = "white";
     console.log("white turn");
   }
-  removeHighlights();
-  const col = to % 8;
-  const row = Math.floor(to / 8);
-
-  console.log(`se jugo ${columns[col]}${row}`)
-
+  turnElement.innerText = `${turn} turn`;
+  positionsAttackedByTheOtherColor = new Set(checkEveryPositionAttacked());
+  if (isTheKingIsOnCheck()) {
+    console.log("Estas jaque");
+    return;
+  }
 };
 const getAttributeOfAPiece = (pos) => {
   if (isAPieceInThisPosition(pos)) {
@@ -451,42 +488,62 @@ const calculateMove = (position, pieceType, pieceColor) => {
   } else if (pieceType == "king") {
     if (
       isInRangeOfBoard(row - 1, col - 1) &&
+      !isThisPieceInThisPositionWithTheColor(
+        (row - 1) * 8 + col - 1,
+        pieceColor,
+      ) &&
       !positionsAttackedByTheOtherColor.has((row - 1) * 8 + col - 1)
     )
       moves.push((row - 1) * 8 + col - 1);
     if (
       isInRangeOfBoard(row - 1, col + 1) &&
+      !isThisPieceInThisPositionWithTheColor(
+        (row - 1) * 8 + col + 1,
+        pieceColor,
+      ) &&
       !positionsAttackedByTheOtherColor.has((row - 1) * 8 + col + 1)
     )
       moves.push((row - 1) * 8 + col + 1);
     if (
       isInRangeOfBoard(row - 1, col) &&
-      !positionsAttackedByTheOtherColor.has((row - 1) * 8 + col)
+      !positionsAttackedByTheOtherColor.has((row - 1) * 8 + col) &&
+      !isThisPieceInThisPositionWithTheColor((row - 1) * 8 + col, pieceColor)
     )
       moves.push((row - 1) * 8 + col);
     if (
       isInRangeOfBoard(row, col - 1) &&
-      !positionsAttackedByTheOtherColor.has(row * 8 + (col - 1))
+      !positionsAttackedByTheOtherColor.has(row * 8 + (col - 1)) &&
+      !isThisPieceInThisPositionWithTheColor(row * 8 + (col - 1), pieceColor)
     )
       moves.push(row * 8 + (col - 1));
     if (
       isInRangeOfBoard(row, col + 1) &&
-      !positionsAttackedByTheOtherColor.has(row * 8 + (col + 1))
+      !positionsAttackedByTheOtherColor.has(row * 8 + (col + 1)) &&
+      !isThisPieceInThisPositionWithTheColor(row * 8 + (col + 1), pieceColor)
     )
       moves.push(row * 8 + (col + 1));
     if (
       isInRangeOfBoard(row + 1, col + 1) &&
-      !positionsAttackedByTheOtherColor.has((row + 1) * 8 + (col + 1))
+      !positionsAttackedByTheOtherColor.has((row + 1) * 8 + (col + 1)) &&
+      !isThisPieceInThisPositionWithTheColor(
+        (row + 1) * 8 + (col + 1),
+        pieceColor,
+      )
     )
       moves.push((row + 1) * 8 + (col + 1));
     if (
       isInRangeOfBoard(row + 1, col - 1) &&
-      !positionsAttackedByTheOtherColor.has((row + 1) * 8 + (col - 1))
+      !positionsAttackedByTheOtherColor.has((row + 1) * 8 + (col - 1)) &&
+      !isThisPieceInThisPositionWithTheColor(
+        (row + 1) * 8 + (col - 1),
+        pieceColor,
+      )
     )
       moves.push((row + 1) * 8 + (col - 1));
     if (
       isInRangeOfBoard(row + 1, col) &&
-      !positionsAttackedByTheOtherColor.has((row + 1) * 8 + col)
+      !positionsAttackedByTheOtherColor.has((row + 1) * 8 + col) &&
+      !isThisPieceInThisPositionWithTheColor((row + 1) * 8 + col, pieceColor)
     )
       moves.push((row + 1) * 8 + col);
 

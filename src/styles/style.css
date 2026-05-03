@@ -9,7 +9,13 @@
   height: 100vh;
   margin-top: 20px;
 }
-
+.sidebar{
+  display: flex;
+}
+.square{
+  width: 100px !important;
+  height: 100px !important;
+}
 #board {
   display: grid;
   background-image: url(/src/assets/boards/8x8_wood.svg);
@@ -64,7 +70,8 @@ div.highlight::before {
   width: 350px;
   height: 600px;
   text-align: center;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   border-radius: 7px;
 }
 .movement-anotation {
@@ -95,7 +102,7 @@ div.highlight::before {
   cursor: pointer;
 }
 
-.movement-anotation > .black-movement {
+/* .movement-anotation > .black-movement {
   color: white;
   background-color: black;
-}
+} */
