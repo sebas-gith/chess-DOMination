@@ -118,6 +118,7 @@ body {
 
 div.highlight {
   position: relative;
+  cursor: pointer;
 }
 
 div.highlight::before {
@@ -227,5 +228,5 @@ div.highlight::before {
 
 .copied-success {
   color: white !important;
-  background-color: #0fd190 !important;
+  background-color: #5a00eb !important;
 }

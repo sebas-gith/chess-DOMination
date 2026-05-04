@@ -7,13 +7,12 @@ const anotations = document.getElementById("movement-anotation-container");
 const turnElement = document.querySelector(".turn-text");
 let turn = "white";
 console.log("whites turn");
-
+let enPassantTarget = null;
 board.addEventListener("dragover", (e) => {
   e.preventDefault();
 });
 
-
-
+const copyPgnBtn = document.getElementById("copy-pgn-btn");
 const pgnOutput = document.getElementById("pgn-output");
 const updatePGN = () => {
   let pgnString = "";
@@ -48,13 +47,31 @@ const capitalizeFirstLetter = (word = "") => {
 };
 const removeHighlights = () => {
   for (let i = 0; i < 64; i++) {
-    board.children[i].classList.remove("highlight");
+    board.children[i].classList.remove("highlight", "selected-square");
   }
 };
 let whiteKingPosition = 60;
 let blackKingPosition = 4;
 const isInRangeOfBoard = (row, col) =>
   row >= 0 && col <= 7 && row <= 7 && col >= 0;
+
+copyPgnBtn.addEventListener("click", (e) => {
+  const contentOutput = pgnOutput.value;
+  if (contentOutput == "") return;
+
+  navigator.clipboard
+    .writeText(contentOutput)
+    .then(() => {
+      copyPgnBtn.classList.add("copied-success");
+
+      setTimeout(() => {
+        copyPgnBtn.classList.remove("copied-success");
+      }, 1000);
+    })
+    .catch((err) => {
+      console.error("{....Que paso....}: ", err);
+    });
+});
 
 const filterLegalMoves = (posFrom, moves, pieceType, color) => {
   const validMoves = [];
@@ -65,6 +82,18 @@ const filterLegalMoves = (posFrom, moves, pieceType, color) => {
   for (const to of moves) {
     const square = board.children[to];
     const piece = square.firstElementChild;
+    let isInPassant = pieceType === "pawn" && to === enPassantTarget;
+    let capturedEnPassantSquare = null;
+    let capturedEnPassantPiece = null;
+
+    if (isInPassant) {
+      capturedEnPassantSquare =
+        board.children[color === "white" ? to + 8 : to - 8];
+      capturedEnPassantPiece = capturedEnPassantSquare.firstElementChild;
+      if (capturedEnPassantPiece) {
+        capturedEnPassantSquare.removeChild(capturedEnPassantPiece);
+      }
+    }
 
     if (piece) {
       square.removeChild(piece);
@@ -93,6 +122,9 @@ const filterLegalMoves = (posFrom, moves, pieceType, color) => {
     if (pieceType === "king") {
       if (color === "white") whiteKingPosition = originalKingPos;
       else blackKingPosition = originalKingPos;
+    }
+    if (isInPassant && capturedEnPassantPiece) {
+      capturedEnPassantSquare.appendChild(capturedEnPassantPiece);
     }
   }
 
@@ -212,7 +244,10 @@ const fillBoard = () => {
       const to = i;
 
       movePiece(from, to);
+      activeSelectionStr = null;
     });
+    square.addEventListener("click", () => handleSquareClick(i));
+
     board.appendChild(square);
   }
 };
@@ -291,6 +326,7 @@ const movePiece = (from, to) => {
 
   let absolutePgnAnotation = null;
   const pgnFigure = chessLetterPiece[pieceType];
+  const isInPassant = pieceType === "pawn" && to === enPassantTarget;
 
   if (isAPieceInThisPosition(to)) {
     absolutePosAnotation = `${pieceFigure}${disambiguationChar}x${columns[anotationCol]}${anotationRow}`;
@@ -304,6 +340,15 @@ const movePiece = (from, to) => {
 
     const eatenPiece = board.children[to].firstElementChild;
     board.children[to].removeChild(eatenPiece);
+  } else if (isInPassant) {
+    const pgnDisambiguation = columns[posFromInt % 8];
+    absolutePosAnotation = `${pieceFigure}${pgnDisambiguation}x${columns[anotationCol]}${anotationRow}`;
+    absolutePgnAnotation = `${pgnFigure}${pgnDisambiguation}x${columns[anotationCol]}${anotationRow}`;
+
+    const capturedSquarePos = color === "white" ? to + 8 : to - 8;
+    const capturedSquare = board.children[capturedSquarePos];
+    const eatenPiece = capturedSquare.firstElementChild;
+    if (eatenPiece) capturedSquare.removeChild(eatenPiece);
   } else {
     absolutePosAnotation = `${pieceFigure}${disambiguationChar}${columns[anotationCol]}${anotationRow}`;
     absolutePgnAnotation = `${pgnFigure}${disambiguationChar}${columns[anotationCol]}${anotationRow}`;
@@ -319,7 +364,7 @@ const movePiece = (from, to) => {
           absolutePgnAnotation = "O-O-O";
           movePieceElement(0, +posFrom - 1, "black", "rook");
         } else if (posFrom - to == -2) {
-          absolutePosAnotation = "O-O-O";
+          absolutePosAnotation = "O-O";
           absolutePgnAnotation = "O-O";
           movePieceElement(7, +posFrom + 1, "black", "rook");
         }
@@ -357,7 +402,11 @@ const movePiece = (from, to) => {
     }
   }
   movePieceElement(posFrom, to, color, pieceType);
-
+  if (pieceType === "pawn" && Math.abs(posFromInt - to) === 16) {
+    enPassantTarget = color === "white" ? posFromInt - 8 : posFromInt + 8;
+  } else {
+    enPassantTarget = null;
+  }
   removeHighlights();
   if (turn == "white") {
     const anotationContainer = document.createElement("div");
@@ -396,18 +445,26 @@ const movePiece = (from, to) => {
     console.log("white turn");
   }
   turnElement.innerHTML = `${turn == "white" ? "<img src='/src/assets/pieces-basic-svg/king-w.svg' style='width: 1em; height: 1em; vertical-align: middle;'/>" : "<img src='/src/assets/pieces-basic-svg/king-b.svg' style='width: 1em; height: 1em; vertical-align: middle;'/>"} ${capitalizeFirstLetter(turn)} turn`;
-  
+
   positionsAttackedByTheOtherColor = new Set(checkEveryPositionAttacked());
 
   const inCheck = isTheKingIsOnCheck();
 
   let hasLegalMoves = false;
   for (let i = 0; i < 64; i++) {
-    if (isAPieceInThisPosition(i) && isThisPieceInThisPositionWithTheColor(i, turn)) {
+    if (
+      isAPieceInThisPosition(i) &&
+      isThisPieceInThisPositionWithTheColor(i, turn)
+    ) {
       const { position, pieceType, color } = getAttributeOfAPiece(i);
       const pseudoMoves = calculateMove(parseInt(position), pieceType, color);
-      const legalMoves = filterLegalMoves(parseInt(position), pseudoMoves, pieceType, color);
-      
+      const legalMoves = filterLegalMoves(
+        parseInt(position),
+        pseudoMoves,
+        pieceType,
+        color,
+      );
+
       if (legalMoves.length > 0) {
         hasLegalMoves = true;
         break;
@@ -417,26 +474,35 @@ const movePiece = (from, to) => {
 
   const lastMoveElements = anotations.querySelectorAll(".movement-anotation");
   const lastRow = lastMoveElements[lastMoveElements.length - 1];
-  const lastMoveSpan = turn === "black" ? lastRow.querySelector(".white-movement") : lastRow.querySelector(".black-movement");
+  const lastMoveSpan =
+    turn === "black"
+      ? lastRow.querySelector(".white-movement")
+      : lastRow.querySelector(".black-movement");
 
   if (inCheck) {
     console.log(`${turn} king is on check`);
- 
-    if(turn == "white") animateCheck(whiteKingPosition);
-    else if(turn == "black") animateCheck(blackKingPosition);
+
+    if (turn == "white") animateCheck(whiteKingPosition);
+    else if (turn == "black") animateCheck(blackKingPosition);
     colorChecked = turn;
 
     if (!hasLegalMoves) {
-      lastMoveSpan.setAttribute("data-pgn", lastMoveSpan.getAttribute("data-pgn") + "#");
-      lastMoveSpan.innerText += "#"; 
+      lastMoveSpan.setAttribute(
+        "data-pgn",
+        lastMoveSpan.getAttribute("data-pgn") + "#",
+      );
+      lastMoveSpan.innerText += "#";
       turnElement.innerText = `CheckMate! Wins ${turn === "white" ? "Blacks" : "Whites"}`;
-      turn = "none"; 
+      turn = "none";
     } else {
-      lastMoveSpan.setAttribute("data-pgn", lastMoveSpan.getAttribute("data-pgn") + "+");
+      lastMoveSpan.setAttribute(
+        "data-pgn",
+        lastMoveSpan.getAttribute("data-pgn") + "+",
+      );
       lastMoveSpan.innerText += "+";
     }
   } else if (!hasLegalMoves) {
-    turnElement.innerText = "Empate por Ahogado";
+    turnElement.innerText = "Draw";
     turn = "none";
   }
   updatePGN();
@@ -529,6 +595,10 @@ const calculateMove = (position, pieceType, pieceColor) => {
       ) {
         moves.push((row - 1) * 8 + col + 1);
       }
+      if (enPassantTarget === (row - 1) * 8 + col - 1)
+        moves.push(enPassantTarget);
+      if (enPassantTarget === (row - 1) * 8 + col + 1)
+        moves.push(enPassantTarget);
     } else {
       if (row === 7) return [];
       if (row === 1 && turn == "black") {
@@ -567,6 +637,10 @@ const calculateMove = (position, pieceType, pieceColor) => {
         moves.push((row + 1) * 8 + col + 1);
       }
     }
+    if (enPassantTarget === (row + 1) * 8 + col - 1)
+      moves.push(enPassantTarget);
+    if (enPassantTarget === (row + 1) * 8 + col + 1)
+      moves.push(enPassantTarget);
   } else if (pieceType == "knight") {
     if (
       isInRangeOfBoard(row - 2, col - 1) &&
@@ -776,7 +850,49 @@ const pieceActions = (pieceImg) => {
 };
 
 let isDragging = false;
+let activeSelectionStr = null;
 
+const handleSquareClick = (clickedPos) => {
+  const square = board.children[clickedPos];
+  if (activeSelectionStr && square.classList.contains("highlight")) {
+    movePiece(activeSelectionStr, clickedPos);
+    activeSelectionStr = null;
+    return;
+  }
+
+  if (isAPieceInThisPosition(clickedPos)) {
+    const attrs = getAttributeOfAPiece(clickedPos);
+
+    if (attrs.color === turn) {
+      activeSelectionStr = `${attrs.position},${attrs.pieceType},${attrs.color}`;
+      removeHighlights();
+
+      const pseudoMoves = calculateMove(
+        parseInt(attrs.position),
+        attrs.pieceType,
+        attrs.color,
+      );
+      const legalMoves = filterLegalMoves(
+        parseInt(attrs.position),
+        pseudoMoves,
+        attrs.pieceType,
+        attrs.color,
+      );
+
+      legalMoves.forEach((move) => {
+        board.children[move].classList.add("highlight");
+      });
+
+      square.classList.add("selected-square");
+    } else {
+      removeHighlights();
+      activeSelectionStr = null;
+    }
+  } else {
+    removeHighlights();
+    activeSelectionStr = null;
+  }
+};
 const fillFirstRow = (color = "white", offset = 0) => {
   const piecesOrder = [
     "rook",
@@ -813,30 +929,6 @@ const fillFirstRow = (color = "white", offset = 0) => {
       );
     });
 
-    pieceImg.addEventListener("click", (e) => {
-      if (turn != color) return;
-      removeHighlights();
-      if (pieceName == "king") {
-        positionsAttackedByTheOtherColor = new Set(
-          checkEveryPositionAttacked(),
-        );
-        console.log(positionsAttackedByTheOtherColor);
-      }
-      const pos = parseInt(pieceImg.getAttribute("data-position"));
-      const pieceNameAtr = pieceImg.getAttribute("data-piece");
-      const pseudoMoves = calculateMove(pos, pieceNameAtr, color);
-      const legalMoves = filterLegalMoves(
-        pos,
-        pseudoMoves,
-        pieceNameAtr,
-        color,
-      );
-
-      legalMoves.forEach((move) => {
-        board.children[move].classList.add("highlight");
-      });
-    });
-
     pieceImg.addEventListener("dragend", (e) => {
       pieceImg.classList.remove("is-dragging");
     });
@@ -861,28 +953,6 @@ const fillPawnsRow = (color = "white", offset = 0) => {
     pieceImg.addEventListener("dragend", (e) => {
       pieceImg.classList.remove("is-dragging");
     });
-    pieceImg.addEventListener("click", (e) => {
-      if (turn != color) return;
-      const possibleMoves = calculateMove(
-        pieceImg.getAttribute("data-position"),
-        "pawn",
-        color,
-      );
-      removeHighlights();
-      const pos = parseInt(pieceImg.getAttribute("data-position"));
-      const pieceNameAtr = pieceImg.getAttribute("data-piece");
-      const pseudoMoves = calculateMove(pos, pieceNameAtr, color);
-      const legalMoves = filterLegalMoves(
-        pos,
-        pseudoMoves,
-        pieceNameAtr,
-        color,
-      );
-
-      legalMoves.forEach((move) => {
-        board.children[move].classList.add("highlight");
-      });
-    });
   }
 };
 
@@ -891,7 +961,6 @@ fillFirstRow("black", 0);
 fillPawnsRow("black", 8);
 fillFirstRow("white", 56);
 fillPawnsRow("white", 48);
-
 
 const resetGame = () => {
   clearInterval(intervalCheck);
@@ -912,12 +981,13 @@ const resetGame = () => {
   firstMovesRooks.black.right = true;
 
   board.innerHTML = "";
-  anotations.innerHTML = ""; 
-  turnElement.innerText = "White turn";
+  anotations.innerHTML = "";
+  turnElement.innerHTML =
+    "<img src='/src/assets/pieces-basic-svg/king-w.svg' style='width: 1em; height: 1em; vertical-align: middle;'/> White turn";
 
   const pgnOutput = document.getElementById("pgn-output");
   if (pgnOutput) {
-    pgnOutput.value = ""; 
+    pgnOutput.value = "";
   }
 
   fillBoard();
