@@ -49,7 +49,7 @@ body {
 }
 
 #pgn-output:focus {
-  border-color: #0fd190;
+  border-color: #0c0042;
 }
 
 .sidebar {
@@ -125,7 +125,7 @@ div.highlight::before {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background-color: rgba(15, 209, 144, 0.5);
+  background-color: rgba(0, 247, 255, 0.5);
   width: 25%;
   height: 25%;
   top: 50%;
@@ -156,7 +156,6 @@ div.highlight::before {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   position: relative;
   font-size: 1.185em;
-  padding: 5px 0;
 }
 
 .movement-anotation .id {
@@ -190,4 +189,43 @@ div.highlight::before {
   #movement-anotation-container {
     height: 250px;
   }
+}
+.pgn-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.pgn-header h3 {
+  margin: 0;
+}
+
+#copy-pgn-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #555;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+#copy-pgn-btn:hover {
+  background-color: #f3f3f3;
+  color: #d1d1d1; 
+}
+
+.copy-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.copied-success {
+  color: white !important;
+  background-color: #0fd190 !important;
 }

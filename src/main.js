@@ -1,4 +1,4 @@
-import { pieces, chessUnicodes } from "./assets/utils/pieces";
+import { pieces, chessUnicodes, chessLetterPiece } from "./assets/utils/pieces";
 
 const app = document.getElementById("app");
 const board = document.getElementById("board");
@@ -12,18 +12,26 @@ board.addEventListener("dragover", (e) => {
   e.preventDefault();
 });
 
-const pgnOutput = document.getElementById("pgn-output");
 
+
+const pgnOutput = document.getElementById("pgn-output");
 const updatePGN = () => {
   let pgnString = "";
   const moveElements = anotations.querySelectorAll(".movement-anotation");
 
   moveElements.forEach((moveEl) => {
     const id = moveEl.querySelector(".id").innerText;
-    const whiteMove = moveEl.querySelector(".white-movement").innerText.trim();
-    const blackMove = moveEl.querySelector(".black-movement").innerText.trim();
+    const whiteMove =
+      moveEl.querySelector(".white-movement").getAttribute("data-pgn") || "";
+    const blackMove =
+      moveEl.querySelector(".black-movement").getAttribute("data-pgn") || "";
 
-    pgnString += `${id}. ${whiteMove} ${blackMove} `;
+    if (whiteMove) {
+      pgnString += `${id}. ${whiteMove} `;
+      if (blackMove) {
+        pgnString += `${blackMove} `;
+      }
+    }
   });
 
   if (pgnOutput) {
@@ -31,7 +39,6 @@ const updatePGN = () => {
     pgnOutput.scrollTop = pgnOutput.scrollHeight;
   }
 };
-
 const columns = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const capitalizeFirstLetter = (word = "") => {
   return word
@@ -282,14 +289,25 @@ const movePiece = (from, to) => {
     return;
   }
 
+  let absolutePgnAnotation = null;
+  const pgnFigure = chessLetterPiece[pieceType];
+
   if (isAPieceInThisPosition(to)) {
     absolutePosAnotation = `${pieceFigure}${disambiguationChar}x${columns[anotationCol]}${anotationRow}`;
+
+    let pgnDisambiguation = disambiguationChar;
+
+    if (pieceType === "pawn") {
+      pgnDisambiguation = columns[posFromInt % 8];
+    }
+    absolutePgnAnotation = `${pgnFigure}${pgnDisambiguation}x${columns[anotationCol]}${anotationRow}`;
+
     const eatenPiece = board.children[to].firstElementChild;
     board.children[to].removeChild(eatenPiece);
   } else {
     absolutePosAnotation = `${pieceFigure}${disambiguationChar}${columns[anotationCol]}${anotationRow}`;
+    absolutePgnAnotation = `${pgnFigure}${disambiguationChar}${columns[anotationCol]}${anotationRow}`;
   }
-
   if (pieceType == "king") {
     if (color == "black") {
       blackKingPosition = to;
@@ -298,9 +316,11 @@ const movePiece = (from, to) => {
         isTheFirstMoveOfTheBlackKing = false;
         if (posFrom - to == 2) {
           absolutePosAnotation = "O-O-O";
+          absolutePgnAnotation = "O-O-O";
           movePieceElement(0, +posFrom - 1, "black", "rook");
         } else if (posFrom - to == -2) {
-          absolutePosAnotation = "O-O";
+          absolutePosAnotation = "O-O-O";
+          absolutePgnAnotation = "O-O";
           movePieceElement(7, +posFrom + 1, "black", "rook");
         }
       }
@@ -313,8 +333,10 @@ const movePiece = (from, to) => {
         if (posFrom - to == 2) {
           movePieceElement(56, posFrom - 1, "white", "rook");
           absolutePosAnotation = "O-O-O";
+          absolutePgnAnotation = "O-O-O";
         } else if (posFrom - to == -2) {
           absolutePosAnotation = "O-O";
+          absolutePgnAnotation = "O-O";
           movePieceElement(63, +posFrom + 1, "white", "rook");
         }
       }
@@ -349,44 +371,43 @@ const movePiece = (from, to) => {
 
     const whitePieceAnotation = document.createElement("span");
     whitePieceAnotation.classList.add("white-movement");
-    whitePieceAnotation.innerText =
-      absolutePosAnotation ??
-      `${pieceFigure}${columns[anotationCol]}${anotationRow}`;
+    whitePieceAnotation.innerText = absolutePosAnotation;
+    whitePieceAnotation.setAttribute("data-pgn", absolutePgnAnotation);
     anotationContainer.appendChild(whitePieceAnotation);
 
     blackPieceAnotation = document.createElement("span");
     blackPieceAnotation.classList.add("black-movement");
     blackPieceAnotation.innerText = `  `;
+    blackPieceAnotation.setAttribute("data-pgn", "");
     anotationContainer.appendChild(blackPieceAnotation);
+
+    anotations.scrollTo({
+      top: anotations.scrollHeight,
+      behavior: "smooth",
+    });
     turn = "black";
     console.log("black turn");
     ++moveCount;
   } else {
     console.log(`${pieceFigure}${columns[anotationCol]}${anotationRow}`);
-    blackPieceAnotation.innerHTML =
-      absolutePosAnotation ??
-      `${pieceFigure}${columns[anotationCol]}${anotationRow}`;
+    blackPieceAnotation.innerHTML = absolutePosAnotation;
+    blackPieceAnotation.setAttribute("data-pgn", absolutePgnAnotation);
     turn = "white";
     console.log("white turn");
   }
-  updatePGN();
   turnElement.innerHTML = `${turn == "white" ? "<img src='/src/assets/pieces-basic-svg/king-w.svg' style='width: 1em; height: 1em; vertical-align: middle;'/>" : "<img src='/src/assets/pieces-basic-svg/king-b.svg' style='width: 1em; height: 1em; vertical-align: middle;'/>"} ${capitalizeFirstLetter(turn)} turn`;
+  
   positionsAttackedByTheOtherColor = new Set(checkEveryPositionAttacked());
+
+  const inCheck = isTheKingIsOnCheck();
+
   let hasLegalMoves = false;
   for (let i = 0; i < 64; i++) {
-    if (
-      isAPieceInThisPosition(i) &&
-      isThisPieceInThisPositionWithTheColor(i, turn)
-    ) {
+    if (isAPieceInThisPosition(i) && isThisPieceInThisPositionWithTheColor(i, turn)) {
       const { position, pieceType, color } = getAttributeOfAPiece(i);
       const pseudoMoves = calculateMove(parseInt(position), pieceType, color);
-      const legalMoves = filterLegalMoves(
-        parseInt(position),
-        pseudoMoves,
-        pieceType,
-        color,
-      );
-
+      const legalMoves = filterLegalMoves(parseInt(position), pseudoMoves, pieceType, color);
+      
       if (legalMoves.length > 0) {
         hasLegalMoves = true;
         break;
@@ -394,21 +415,31 @@ const movePiece = (from, to) => {
     }
   }
 
-  const inCheck = isTheKingIsOnCheck();
+  const lastMoveElements = anotations.querySelectorAll(".movement-anotation");
+  const lastRow = lastMoveElements[lastMoveElements.length - 1];
+  const lastMoveSpan = turn === "black" ? lastRow.querySelector(".white-movement") : lastRow.querySelector(".black-movement");
 
   if (inCheck) {
     console.log(`${turn} king is on check`);
-    if (turn == "white") animateCheck(whiteKingPosition);
-    else if (turn == "black") animateCheck(blackKingPosition);
+ 
+    if(turn == "white") animateCheck(whiteKingPosition);
+    else if(turn == "black") animateCheck(blackKingPosition);
     colorChecked = turn;
 
     if (!hasLegalMoves) {
-      console.log("jaque mate");
+      lastMoveSpan.setAttribute("data-pgn", lastMoveSpan.getAttribute("data-pgn") + "#");
+      lastMoveSpan.innerText += "#"; 
+      turnElement.innerText = `CheckMate! Wins ${turn === "white" ? "Blacks" : "Whites"}`;
+      turn = "none"; 
+    } else {
+      lastMoveSpan.setAttribute("data-pgn", lastMoveSpan.getAttribute("data-pgn") + "+");
+      lastMoveSpan.innerText += "+";
     }
   } else if (!hasLegalMoves) {
-    console.log("AHOGADO Es un empate.");
+    turnElement.innerText = "Empate por Ahogado";
     turn = "none";
   }
+  updatePGN();
 };
 const getAttributeOfAPiece = (pos) => {
   if (isAPieceInThisPosition(pos)) {
@@ -673,48 +704,57 @@ const calculateMove = (position, pieceType, pieceColor) => {
       moves.push((row + 1) * 8 + col);
 
     if (isTheFirstMoveOfTheWhiteKing && pieceColor == "white") {
-      if (
-        !isAPieceInThisPosition(row * 8 + col + 1) &&
-        !positionsAttackedByTheOtherColor.has(row * 8 + col + 1) &&
-        !isAPieceInThisPosition(row * 8 + col + 2) &&
-        !positionsAttackedByTheOtherColor.has(row * 8 + col + 2) &&
-        firstMovesRooks.white.right
-      ) {
-        moves.push(row * 8 + col + 1);
-        moves.push(row * 8 + col + 2);
-      }
-      if (
-        !isAPieceInThisPosition(row * 8 + col - 1) &&
-        !positionsAttackedByTheOtherColor.has(row * 8 + col - 1) &&
-        !isAPieceInThisPosition(row * 8 + col - 2) &&
-        !positionsAttackedByTheOtherColor.has(row * 8 + col - 2) &&
-        firstMovesRooks.white.left
-      ) {
-        moves.push(row * 8 + col - 1);
-        moves.push(row * 8 + col - 2);
+      if (!positionsAttackedByTheOtherColor.has(position)) {
+        if (
+          !isAPieceInThisPosition(row * 8 + col + 1) &&
+          !positionsAttackedByTheOtherColor.has(row * 8 + col + 1) &&
+          !isAPieceInThisPosition(row * 8 + col + 2) &&
+          !positionsAttackedByTheOtherColor.has(row * 8 + col + 2) &&
+          firstMovesRooks.white.right
+        ) {
+          moves.push(row * 8 + col + 1);
+          moves.push(row * 8 + col + 2);
+        }
+
+        if (
+          !isAPieceInThisPosition(row * 8 + col - 1) &&
+          !positionsAttackedByTheOtherColor.has(row * 8 + col - 1) &&
+          !isAPieceInThisPosition(row * 8 + col - 2) &&
+          !positionsAttackedByTheOtherColor.has(row * 8 + col - 2) &&
+          !isAPieceInThisPosition(row * 8 + col - 3) &&
+          firstMovesRooks.white.left
+        ) {
+          moves.push(row * 8 + col - 1);
+          moves.push(row * 8 + col - 2);
+        }
       }
     }
-    if (isTheFirstMoveOfTheBlackKing && pieceColor == "black") {
-      if (
-        !isAPieceInThisPosition(row * 8 + col + 1) &&
-        !positionsAttackedByTheOtherColor.has(row * 8 + col + 1) &&
-        !isAPieceInThisPosition(row * 8 + col + 2) &&
-        !positionsAttackedByTheOtherColor.has(row * 8 + col + 2) &&
-        firstMovesRooks.black.right
-      ) {
-        moves.push(row * 8 + col + 1);
-        moves.push(row * 8 + col + 2);
-      }
 
-      if (
-        !isAPieceInThisPosition(row * 8 + col - 1) &&
-        !positionsAttackedByTheOtherColor.has(row * 8 + col - 1) &&
-        !isAPieceInThisPosition(row * 8 + col - 2) &&
-        !positionsAttackedByTheOtherColor.has(row * 8 + col - 2) &&
-        firstMovesRooks.black.left
-      ) {
-        moves.push(row * 8 + col - 1);
-        moves.push(row * 8 + col - 2);
+    if (isTheFirstMoveOfTheBlackKing && pieceColor == "black") {
+      if (!positionsAttackedByTheOtherColor.has(position)) {
+        if (
+          !isAPieceInThisPosition(row * 8 + col + 1) &&
+          !positionsAttackedByTheOtherColor.has(row * 8 + col + 1) &&
+          !isAPieceInThisPosition(row * 8 + col + 2) &&
+          !positionsAttackedByTheOtherColor.has(row * 8 + col + 2) &&
+          firstMovesRooks.black.right
+        ) {
+          moves.push(row * 8 + col + 1);
+          moves.push(row * 8 + col + 2);
+        }
+
+        // Enroque Largo (Izquierda)
+        if (
+          !isAPieceInThisPosition(row * 8 + col - 1) &&
+          !positionsAttackedByTheOtherColor.has(row * 8 + col - 1) &&
+          !isAPieceInThisPosition(row * 8 + col - 2) &&
+          !positionsAttackedByTheOtherColor.has(row * 8 + col - 2) &&
+          !isAPieceInThisPosition(row * 8 + col - 3) &&
+          firstMovesRooks.black.left
+        ) {
+          moves.push(row * 8 + col - 1);
+          moves.push(row * 8 + col - 2);
+        }
       }
     }
   }
@@ -851,3 +891,41 @@ fillFirstRow("black", 0);
 fillPawnsRow("black", 8);
 fillFirstRow("white", 56);
 fillPawnsRow("white", 48);
+
+
+const resetGame = () => {
+  clearInterval(intervalCheck);
+
+  turn = "white";
+  moveCount = 1;
+  whiteKingPosition = 60;
+  blackKingPosition = 4;
+  positionsAttackedByTheOtherColor = new Set([]);
+  colorChecked = "";
+
+  isTheFirstMoveOfTheWhiteKing = true;
+  isTheFirstMoveOfTheBlackKing = true;
+
+  firstMovesRooks.white.left = true;
+  firstMovesRooks.white.right = true;
+  firstMovesRooks.black.left = true;
+  firstMovesRooks.black.right = true;
+
+  board.innerHTML = "";
+  anotations.innerHTML = ""; 
+  turnElement.innerText = "White turn";
+
+  const pgnOutput = document.getElementById("pgn-output");
+  if (pgnOutput) {
+    pgnOutput.value = ""; 
+  }
+
+  fillBoard();
+  fillFirstRow("black", 0);
+  fillPawnsRow("black", 8);
+  fillFirstRow("white", 56);
+  fillPawnsRow("white", 48);
+};
+
+const resetBtn = document.getElementById("reset-btn");
+resetBtn.addEventListener("click", resetGame);
