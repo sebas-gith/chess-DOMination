@@ -255,17 +255,25 @@ const fillBoard = () => {
 let intervalCheck;
 const animateCheck = (posKing) => {
   let now = Date.now();
-  let counter = 0;
+  document.querySelectorAll(".parpadeo").forEach((el) => {
+    el.classList.remove("parpadeo");
+  });
+
+  if (intervalCheck) {
+    clearInterval(intervalCheck);
+  }
+  const pieceImg = board.children[posKing].firstElementChild;
+  if (!pieceImg) {
+    return;
+  }
 
   intervalCheck = setInterval(() => {
-    const pieceImg = board.children[posKing].firstElementChild;
     pieceImg.classList.toggle("parpadeo");
-    counter++;
 
     if (Date.now() - now >= 1000) {
       clearInterval(intervalCheck);
       pieceImg.classList.remove("parpadeo");
-      console.log("Parpadeo terminado");
+      console.log("parpadeo down");
     }
   }, 200);
 };
@@ -492,7 +500,7 @@ const movePiece = (from, to) => {
         lastMoveSpan.getAttribute("data-pgn") + "#",
       );
       lastMoveSpan.innerText += "#";
-      turnElement.innerText = `CheckMate! Wins ${turn === "white" ? "Blacks" : "Whites"}`;
+      turnElement.innerText = `${turn === "white" ? "Black" : "White"} wins by checkmate`;
       turn = "none";
     } else {
       lastMoveSpan.setAttribute(
