@@ -991,7 +991,7 @@ const resetGame = () => {
   board.innerHTML = "";
   anotations.innerHTML = "";
   turnElement.innerHTML =
-    "<img src='/src/assets/pieces-basic-svg/king-w.svg' style='width: 1em; height: 1em; vertical-align: middle;'/> White turn";
+    "<img src='/pieces-basic-svg/king-w.svg' style='width: 1em; height: 1em; vertical-align: middle;'/> White turn";
 
   const pgnOutput = document.getElementById("pgn-output");
   if (pgnOutput) {
