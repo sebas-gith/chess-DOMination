@@ -452,7 +452,7 @@ const movePiece = (from, to) => {
     turn = "white";
     console.log("white turn");
   }
-  turnElement.innerHTML = `${turn == "white" ? "<img src='/src/assets/pieces-basic-svg/king-w.svg' style='width: 1em; height: 1em; vertical-align: middle;'/>" : "<img src='/src/assets/pieces-basic-svg/king-b.svg' style='width: 1em; height: 1em; vertical-align: middle;'/>"} ${capitalizeFirstLetter(turn)} turn`;
+  turnElement.innerHTML = `${turn == "white" ? "<img src='./src/assets/pieces-basic-svg/king-w.svg' style='width: 1em; height: 1em; vertical-align: middle;'/>" : "<img src='./src/assets/pieces-basic-svg/king-w.svg' style='width: 1em; height: 1em; vertical-align: middle;'/>"} ${capitalizeFirstLetter(turn)} turn`;
 
   positionsAttackedByTheOtherColor = new Set(checkEveryPositionAttacked());
 
