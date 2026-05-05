@@ -232,7 +232,59 @@ const movePieceElement = (pieceFromPos, pieceToPos, color, pieceType) => {
     e.dataTransfer.setData("text/plain", `${pieceToPos},${pieceType},${color}`);
   });
 };
+let promotionResolver = null;
 
+const showPromotionModal = (color) => {
+  return new Promise((resolve) => {
+    promotionResolver = resolve;
+
+    const modal = document.getElementById("promotion-modal");
+    const optionsContainer = document.getElementById("promotion-options");
+    optionsContainer.innerHTML = "";
+
+    const promotionPieces = ["queen", "rook", "bishop", "knight"];
+
+    promotionPieces.forEach((pieceName) => {
+      const img = document.createElement("img");
+      img.src = pieces[color][pieceName];
+      img.classList.add("promotion-piece");
+      img.addEventListener("click", () => {
+        modal.classList.remove("active");
+        resolve(pieceName);
+      });
+      optionsContainer.appendChild(img);
+    });
+
+    modal.classList.add("active");
+  });
+};
+
+const handlePromotion = async (pos, color) => {
+  const chosenPiece = await showPromotionModal(color);
+  const square = board.children[pos];
+  const oldPawn = square.firstElementChild;
+
+  if (oldPawn) square.removeChild(oldPawn);
+
+  const pieceImg = document.createElement("img");
+  pieceImg.src = pieces[color][chosenPiece];
+  pieceImg.classList.add("piece");
+  pieceImg.setAttribute("data-piece", chosenPiece);
+  pieceImg.setAttribute("data-color", color);
+  pieceImg.setAttribute("data-position", pos);
+  pieceImg.setAttribute("draggable", "true");
+
+  pieceImg.addEventListener("dragstart", (e) => {
+    pieceImg.classList.add("is-dragging");
+    e.dataTransfer.setData("text/plain", `${pos},${chosenPiece},${color}`);
+  });
+  pieceImg.addEventListener("dragend", () => {
+    pieceImg.classList.remove("is-dragging");
+  });
+
+  square.appendChild(pieceImg);
+  return chosenPiece;
+};
 const fillBoard = () => {
   for (let i = 0; i < 64; i++) {
     const square = document.createElement("div");
@@ -282,7 +334,7 @@ let colorChecked = "";
 
 let moveCount = 1;
 let isOnCheck = true;
-const movePiece = (from, to) => {
+const movePiece = async (from, to) => {
   const [posFrom, pieceType, color] = from.split(",");
   const posFromInt = parseInt(posFrom);
   const anotationCol = to % 8;
@@ -409,7 +461,10 @@ const movePiece = (from, to) => {
         firstMovesRooks.black.right = false;
     }
   }
+
+  const colorThatMoved = turn;
   movePieceElement(posFrom, to, color, pieceType);
+
   if (pieceType === "pawn" && Math.abs(posFromInt - to) === 16) {
     enPassantTarget = color === "white" ? posFromInt - 8 : posFromInt + 8;
   } else {
@@ -425,7 +480,15 @@ const movePiece = (from, to) => {
     idAnotation.classList.add("id");
     idAnotation.innerText = moveCount;
     anotationContainer.appendChild(idAnotation);
-
+    if (
+      pieceType === "pawn" &&
+      (Math.floor(to / 8) === 0 || Math.floor(to / 8) === 7)
+    ) {
+      const promotedTo = await handlePromotion(to, color);
+      const promotionSuffix = `=${promotedTo[0].toUpperCase()}`;
+      absolutePosAnotation += promotionSuffix;
+      absolutePgnAnotation += promotionSuffix;
+    }
     const whitePieceAnotation = document.createElement("span");
     whitePieceAnotation.classList.add("white-movement");
     whitePieceAnotation.innerText = absolutePosAnotation;
@@ -446,6 +509,15 @@ const movePiece = (from, to) => {
     console.log("black turn");
     ++moveCount;
   } else {
+    if (
+      pieceType === "pawn" &&
+      (Math.floor(to / 8) === 0 || Math.floor(to / 8) === 7)
+    ) {
+      const promotedTo = await handlePromotion(to, color);
+      const promotionSuffix = `=${promotedTo[0].toUpperCase()}`;
+      absolutePosAnotation += promotionSuffix;
+      absolutePgnAnotation += promotionSuffix;
+    }
     console.log(`${pieceFigure}${columns[anotationCol]}${anotationRow}`);
     blackPieceAnotation.innerHTML = absolutePosAnotation;
     blackPieceAnotation.setAttribute("data-pgn", absolutePgnAnotation);
